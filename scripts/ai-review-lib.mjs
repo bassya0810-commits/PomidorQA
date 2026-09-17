@@ -4,52 +4,20 @@ const REVIEWED_EXACT_PATHS = new Set([
   "playwright.config.ts",
 ]);
 
-const RULE_FIRST_LESSON = new Map([
-  ["11", 14],
-  ["12", 14],
-]);
-
 export const REVIEW_MARKER_PREFIX = "<!-- pomidorqa-ai-review:";
 
 function sanitizeReviewText(value) {
   return value.trim().replaceAll("@", "@\u200b");
 }
 
-export function isHomeworkBranch(branch) {
-  return /^hw\d+[a-z]?-[a-z0-9][a-z0-9._-]*$/i.test(branch);
+export function isReviewBranch(branch) {
+  return /^pr-[a-z0-9][a-z0-9._/-]*$/i.test(branch);
 }
 
-export function parseHomeworkBranch(branch) {
-  const match = branch.match(/^hw(\d+)[a-z]?-(.+)$/i);
+export function parseReviewBranch(branch) {
+  const match = branch.match(/^pr-([a-z0-9][a-z0-9._/-]*)$/i);
   if (!match) return null;
-  return { lesson: Number(match[1]), student: match[2] };
-}
-
-export function isRuleApplicableToLesson(rule, lesson) {
-  return lesson >= (RULE_FIRST_LESSON.get(String(rule)) || 1);
-}
-
-export function filterRulesForLesson(markdown, lesson, allowedRules = null) {
-  let includeSection = true;
-  const allowed = allowedRules ? new Set(allowedRules.map(String)) : null;
-  const isAllowed = (rule) =>
-    isRuleApplicableToLesson(rule, lesson) && (!allowed || allowed.has(String(rule)));
-
-  return markdown
-    .split("\n")
-    .filter((line) => {
-      const section = line.match(/^##\s+(\d+)\./);
-      if (section) {
-        includeSection = isAllowed(section[1]);
-      }
-      if (!includeSection) return false;
-
-      const checklistItem = line.match(/^- \[ \] \*\*(\d+)\./);
-      return !checklistItem || isAllowed(checklistItem[1]);
-    })
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return { slug: match[1].toLowerCase() };
 }
 
 export function isReviewedPath(path) {
@@ -113,7 +81,7 @@ export function parseStructuredReview(content) {
 
 export function buildReviewConclusion(comments) {
   if (!comments.length) {
-    return "**Вердикт: зачёт.** CI завершился успешно. Доказуемых нарушений CODEX.md в добавленных строках текущей домашней работы не найдено.";
+    return "**Вердикт: зачёт.** CI завершился успешно. Доказуемых нарушений CODEX.md в добавленных строках не найдено.";
   }
 
   const needsWork = comments.some((comment) =>
