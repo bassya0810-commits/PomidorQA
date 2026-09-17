@@ -131,4 +131,8 @@ test.describe('Гость бронирует встречу, отменяет е
     await guestContext.close();
   }
 });
+test.skip("отмена брони: ждём фикс DELETE /bookings/:id (issue #123)", async () => {
+  // Заглушка до починки endpoint. Убрать skip и дописать проверки.
+  expect(true).toBe(true);
+});
 });
