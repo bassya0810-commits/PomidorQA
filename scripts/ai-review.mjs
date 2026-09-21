@@ -52,7 +52,7 @@ function getReviewContext(branch) {
 }
 
 const repository = requiredEnv("GITHUB_REPOSITORY");
-const pullNumber = requiredEnv("AI_REVIEW_PR_NUMBER");
+let pullNumber = process.env.AI_REVIEW_PR_NUMBER;
 const expectedHeadSha = requiredEnv("AI_REVIEW_HEAD_SHA");
 const githubToken =
   process.env.GITHUB_TOKEN ||
@@ -86,6 +86,17 @@ async function githubRequest(path, options = {}) {
   }
 
   return response.status === 204 ? undefined : response.json();
+}
+
+async function resolvePullNumber() {
+  if (pullNumber) return pullNumber;
+
+  const pulls = await githubRequest(
+    `/repos/${repository}/commits/${expectedHeadSha}/pulls`,
+  );
+  const pull = pulls.find((item) => item.state === "open");
+  if (!pull) throw new Error(`Не найден открытый PR для commit ${expectedHeadSha}.`);
+  return String(pull.number);
 }
 
 async function getPullFiles() {
@@ -414,6 +425,7 @@ function sumUsage(first, second) {
 }
 
 async function main() {
+  pullNumber = await resolvePullNumber();
   const pull = await githubRequest(`/repos/${repository}/pulls/${pullNumber}`);
 
   if (pull.state !== "open" || pull.draft) {

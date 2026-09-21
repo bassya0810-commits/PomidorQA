@@ -50,18 +50,40 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       # Сначала запускаем быструю статическую проверку кода.
+      - name: Prepare test results directory
+        run: mkdir -p test-results
+
       - name: Lint tests
         # Используем тот же npm-скрипт, который разработчик запускает локально.
-        run: npm run lint
+        id: lint
+        continue-on-error: true
+        run: npm run lint -- --format json --output-file test-results/eslint.json
 
       # После линтера проверяем реальное поведение тестами.
       - name: Run Playwright tests
         # Скрипт `test` из package.json запускает unit, API и E2E-проекты Playwright.
+        id: playwright
+        continue-on-error: true
         run: npm test
         # Переменные окружения только для этого шага.
         env:
           # Включает CI-режим в playwright.config.ts: retry, один worker и reporter без открытия окна.
           CI: true
+          # JSON нужен следующему шагу для компактного summary в интерфейсе GitHub Actions.
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/playwright.json
+
+      - name: Publish CI summary
+        # Публикуем summary даже если lint или тесты завершились ошибкой.
+        if: ${{ !cancelled() }}
+        run: node scripts/ci-summary.mjs
+
+      - name: Finish with check result
+        # После публикации summary возвращаем workflow корректный статус.
+        if: ${{ !cancelled() }}
+        run: |
+          if [[ "${{ steps.lint.outcome }}" != "success" || "${{ steps.playwright.outcome }}" != "success" ]]; then
+            exit 1
+          fi
 
       # Сохраняем HTML-отчёт после завершения тестов.
       - name: Upload Playwright report
