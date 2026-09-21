@@ -21,7 +21,14 @@ function formatDuration(milliseconds) {
 }
 
 function statusIcon(status) {
-  return { passed: "✅", failed: "❌", skipped: "⏭️", flaky: "⚠️" }[status] || "⚪";
+  return { passed: "✅", failed: "❌", skipped: "⏭️", flaky: "⚠️", warning: "⚠️" }[status] || "⚪";
+}
+
+function fileLink(file) {
+  const server = process.env.GITHUB_SERVER_URL || "https://github.com";
+  const repository = process.env.GITHUB_REPOSITORY;
+  const revision = process.env.GITHUB_SHA || "main";
+  return repository ? `[${file}](${server}/${repository}/blob/${revision}/${file})` : `\`${file}\``;
 }
 
 function collectTests(suite, file, tests) {
@@ -73,7 +80,6 @@ function collectLint(lintReport) {
       errors: result.errorCount + result.fatalErrorCount,
       warnings: result.warningCount,
     }))
-    .filter((result) => result.errors || result.warnings)
     .sort((left, right) => left.file.localeCompare(right.file));
 }
 
@@ -91,30 +97,38 @@ const lintErrors = lintFiles.reduce((total, file) => total + file.errors, 0);
 const lintWarnings = lintFiles.reduce((total, file) => total + file.warnings, 0);
 
 const lines = [
-  "## CI summary",
+  "## Отчёт по прогону тестов",
   "",
-  `**Playwright:** ${statusIcon(failed ? "failed" : flaky ? "flaky" : "passed")} ${passed} passed, ${failed} failed, ${skipped} skipped, ${flaky} flaky · время: ${duration}`,
-  `**Lint:** ${lintErrors ? "❌" : "✅"} ${lintErrors} errors, ${lintWarnings} warnings`,
+  "### Результат",
+  "",
+  "| Проверка | Результат | Passed | Failed | Skipped | Flaky | Время |",
+  "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
+  `| Playwright | ${statusIcon(failed ? "failed" : flaky ? "flaky" : "passed")} ${failed ? "Есть ошибки" : flaky ? "Есть нестабильные тесты" : "Успешно"} | ${passed} | ${failed} | ${skipped} | ${flaky} | ${duration} |`,
+  `| Lint | ${lintErrors ? "❌ Есть ошибки" : lintWarnings ? "⚠️ Есть предупреждения" : "✅ Успешно"} | — | — | — | — | — |`,
   "",
   "### Тесты по файлам",
   "",
-  "| Файл | Passed | Failed | Skipped | Flaky |",
-  "| --- | ---: | ---: | ---: | ---: |",
+  "| Тестовый файл | Результат | Passed | Failed | Skipped | Flaky |",
+  "| --- | --- | ---: | ---: | ---: | ---: |",
 ];
 
 if (files.length) {
   for (const file of files) {
-    lines.push(`| ${file.file} | ${file.passed} | ${file.failed} | ${file.skipped} | ${file.flaky} |`);
+    const status = file.failed ? "failed" : file.flaky ? "flaky" : file.skipped && !file.passed ? "skipped" : "passed";
+    lines.push(`| ${fileLink(file.file)} | ${statusIcon(status)} ${status} | ${file.passed} | ${file.failed} | ${file.skipped} | ${file.flaky} |`);
   }
 } else {
-  lines.push("| Нет данных Playwright | — | — | — | — |");
+  lines.push("| Нет данных Playwright | — | — | — | — | — |");
 }
 
-lines.push("", "### Lint по файлам", "", "| Файл | Errors | Warnings |", "| --- | ---: | ---: |");
+lines.push("", "### Проверки lint по файлам", "", "| Файл | Результат | Errors | Warnings |", "| --- | --- | ---: | ---: |");
 if (lintFiles.length) {
-  for (const file of lintFiles) lines.push(`| ${file.file} | ${file.errors} | ${file.warnings} |`);
+  for (const file of lintFiles) {
+    const status = file.errors ? "failed" : file.warnings ? "warning" : "passed";
+    lines.push(`| ${fileLink(file.file)} | ${statusIcon(status)} ${status} | ${file.errors} | ${file.warnings} |`);
+  }
 } else {
-  lines.push("| Ошибок и предупреждений нет | 0 | 0 |");
+  lines.push("| Нет данных lint | — | — | — |");
 }
 
 const summary = `${lines.join("\n")}\n`;
