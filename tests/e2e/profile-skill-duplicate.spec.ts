@@ -1,15 +1,16 @@
 import { test, expect } from "@playwright/test";
-import { makeUser, registerUserViaApi, deleteCurrentTestUser } from "../helpers/user";
+import { makeUser, registerUserViaApi, contextTracker } from "../helpers/user";
 import { ProfilePage } from "../pages/ProfilePage";
 
 test.describe("Профиль: навык не дублируется при повторном добавлении", () => {
   test.beforeEach(async ({ page }) => {
     const user = makeUser("skill-dup", crypto.randomUUID().slice(0, 10));
+    contextTracker.track(page.context());
     await registerUserViaApi(page, user);
   });
 
-  test.afterEach(async ({ page }) => {
-    await deleteCurrentTestUser(page);
+  test.afterEach(async () => {
+    await contextTracker.cleanup();
   });
 
   test("Повторно добавленный навык не создаёт дубликат в списке", async ({ page }) => {

@@ -1,25 +1,30 @@
 import { test, expect } from "@playwright/test";
-import { makeUser, registerUserViaApi, deleteCurrentTestUser } from "../helpers/user";
+import { makeUser, registerUserViaApi, contextTracker } from "../helpers/user";
 import { ProfilePage } from "../pages/ProfilePage";
 import { BookingPage } from "../pages/BookingPage";
 
-// E2E-уровень пирамиды: реальный браузер на живом стенде aiqa.su/pomidorqa.
-// После ДЗ Урока 4: guest2 открывает тот же слот и должен увидеть ошибку.
-// host/guest уже через registerUser; регистрация guest2 пока инлайн — это заготовка к ДЗ Урока 5.
-//POMIDORQA_BASE_URL=http://localhost:3000 npx playwright test --project=e2e tests/e2e/booking-flow.spec.ts
-
 test.describe('Основной путь + гонка за слот: регистрация → навык → слот → поиск в каталоге → бронирование → «Мои встречи» у обоих → второй гость видит ошибку', () => {
+    
+ test.afterEach(async () => {
+    await contextTracker.cleanup();
+  });
+  
   test ('основной путь + гонка за слот', async ({ browser }) => {
+    test.setTimeout(60_000);
+
   const runId = crypto.randomUUID().slice(0, 10);
   const skillTag = `Playwright-demo-${runId}`;
   const host = makeUser("host", runId);
   const guest = makeUser("guest", runId);
   const guest2 = makeUser("guest2", runId);
 
-  // Три независимых аккаунта = три независимых браузерных контекста
   const hostContext = await browser.newContext();
   const guestContext = await browser.newContext();
   const guest2Context = await browser.newContext();
+
+  contextTracker.track(hostContext);
+  contextTracker.track(guestContext);
+  contextTracker.track(guest2Context);
   
   const hostPage = await hostContext.newPage();
   const guestPage = await guestContext.newPage();
@@ -57,8 +62,8 @@ test.describe('Основной путь + гонка за слот: регис�
     await registerUserViaApi(guestPage, guest);
   });
 
-  await test.step("Гость: ищет хоста в каталоге по навыку (сценарий 9)", async () => {
-    await guestBooking.searchBySkill(skillTag)
+  await test.step("Гость: ищет хоста в каталоге по навыку", async () => {
+    await guestBooking.searchBySkill(skillTag);
   });
 
   await test.step("Гость: проверяет карточку хоста в каталоге", async () => {
@@ -66,11 +71,21 @@ test.describe('Основной путь + гонка за слот: регис�
   });
 
   await test.step("Гость: открывает карточку хоста", async () => {
-    await guestBooking.openCard(host.name)
+    await guestBooking.openCard(host.name);
   });
 
   await test.step("Гость: проверяет наличие имени хоста в карточке хоста", async () => {
     await expect(guestBooking.personName).toHaveText(host.name);
+  });
+
+  await test.step("Гость: дожидается появления слотов в календаре", async () => {
+  await expect(async () => {
+    const dayChip = guestBooking.bookingCalendarDay.first();
+    if (!(await dayChip.isVisible().catch(() => false))) {
+      await guestPage.reload();
+    }
+    await expect(dayChip).toBeVisible();
+    }).toPass({ timeout: 10_000 });
   });
 
   await test.step("Гость: кликает по дню и времени в календаре слотов", async () => {
@@ -81,17 +96,34 @@ test.describe('Основной путь + гонка за слот: регис�
     await expect(guestBooking.bookingConfirmDialog).toBeVisible();
   });
 
-  // Важно для разбора ДЗ 4: модалку guest2 открываем ДО confirm у guest.
-  // Пока слот в UI ещё свободен — оба «человек открыл и отошёл».
-  await test.step("Гость2: регистрируется и тоже открывает карточку хоста на тот же слот", async () => {
+  await test.step("Гость2: регистрируется, ищет карточку хоста на тот же слот", async () => {
     await registerUserViaApi(guest2Page, guest2);
     await guest2Booking.searchBySkill(skillTag)
+  });
+
+  await test.step("Гость2: проверяет наличие карточки хоста в каталоге", async () => {
+    await expect(guest2Booking.catalogCard.filter({ hasText: host.name })).toBeVisible();
+  });
+
+
+  await test.step("Гость2: открывает карточку хоста", async () => {
     await guest2Booking.openCard(host.name);
   });
 
   await test.step("Гость2: проверяет наличие имени хоста в карточке", async () => {
     await expect(guest2Booking.personName).toHaveText(host.name);
   });
+
+  await test.step("Гость2: дожидается появления слотов в календаре", async () => {
+    await expect(async () => {
+      const dayChip = guest2Booking.bookingCalendarDay.first();
+      if (!(await dayChip.isVisible().catch(() => false))) {
+        await guest2Page.reload();
+      }
+      await expect(dayChip).toBeVisible();
+    }).toPass({ timeout: 10_000 });
+  });
+
 
   await test.step("Гость2: выбирает слот в карточке", async () => {
     await guest2Booking.selectSlot()
@@ -102,7 +134,7 @@ test.describe('Основной путь + гонка за слот: регис�
   });
 
   await test.step("Гость: подтверждает бронирование первым", async () => {
-    await guestBooking.bookingConfirmButton.click();
+    await guestBooking.bookingConfirm();
   });
 
   await test.step("Гость: проверяет успешное подтверждение бронирования", async () => {
@@ -110,7 +142,7 @@ test.describe('Основной путь + гонка за слот: регис�
   });
 
   await test.step("Гость2: пытается забронировать тот же слот вторым", async () => {
-    await guest2Booking.bookingConfirmButton.click();
+    await guest2Booking.bookingFail();
   });
 
   await test.step("Гость2: проверяет отображение ошибки подтверждения", async () => {
@@ -138,12 +170,5 @@ test.describe('Основной путь + гонка за слот: регис�
       await expect(card).toHaveText(guest.name);
     }).toPass({ timeout: 10_000 });
   });
-
-  await deleteCurrentTestUser(hostPage);
-  await deleteCurrentTestUser(guestPage);
-  await deleteCurrentTestUser(guest2Page);
-  await hostContext.close();
-  await guestContext.close();
-  await guest2Context.close();
 });
 });

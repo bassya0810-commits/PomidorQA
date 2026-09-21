@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page, type BrowserContext } from "@playwright/test";
 
 export const timezones = {
   EKATERINBURG: "Asia/Yekaterinburg",
@@ -97,37 +97,41 @@ export async function registerUserViaApi(page: Page, user: TestUser) {
   await registerUser(page, user);
 }
 
-export async function deleteCurrentTestUser(page: Page) {
-  const request = page.context().request;
-  const candidates = [
-    { method: "DELETE", url: "/pomidorqa/api/profile" },
-    { method: "DELETE", url: "/pomidorqa/api/user" },
-    { method: "DELETE", url: "/api/profile" },
-    { method: "DELETE", url: "/api/user" },
-    { method: "POST", url: "/pomidorqa/api/profile/delete" },
-    { method: "POST", url: "/pomidorqa/api/user/delete" },
-    { method: "POST", url: "/api/profile/delete" },
-    { method: "POST", url: "/api/user/delete" },
-  ] as const;
+export type ApiUser = {
+  user: TestUser;
+  context: BrowserContext;
+  page: Page;
+};
+export const contextTracker = {
+  activeContexts: [] as BrowserContext[],
 
-  for (const candidate of candidates) {
-    try {
-      const response = await request.fetch(candidate.url, {
-        method: candidate.method,
-        headers: {
-          Accept: "application/json",
-          Origin: "https://aiqa.su",
-          Referer: "https://aiqa.su/pomidorqa",
-        },
-      });
-
-      const status = response.status();
-      if (status !== 404 && status !== 405) {
-        return;
-      }
-    } catch {
-      // Ignore missing cleanup routes; test accounts are short-lived and unique.
+  track(context: BrowserContext) {
+    if (!this.activeContexts.includes(context)) {
+      this.activeContexts.push(context);
     }
+  },
+
+  async cleanup() {
+    for (const context of this.activeContexts) {
+      try {
+        await deleteUserViaApi(context);
+      } catch (error) {
+        console.error("Не удалось удалить пользователя из БД:", error);
+      } finally {
+        await context.close().catch(() => {});
+      }
+    }
+    this.activeContexts = [];
+  }
+};
+
+export async function deleteUserViaApi(context: BrowserContext): Promise<void> {
+  const response = await context.request.delete("/api/pomidorqa/test/accounts");
+ 
+  if (response.status() !== 200) {
+    throw new Error(
+      `Удаление аккаунта не удалось: ${response.status()} ${await response.text()}`,
+    );
   }
 }
 

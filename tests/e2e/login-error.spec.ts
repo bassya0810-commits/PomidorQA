@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { contextTracker } from "../helpers/user";
 
-// E2E-уровень пирамиды, негативный сценарий: сценарий 10 из списка ДЗ Урока 2.
-// requirements.md, п.4: при неверном email ИЛИ пароле участник должен увидеть одну и ту же
-// понятную ошибку, без уточнения, что именно неверно, — из соображений безопасности.
+test.afterEach(async () => {
+  await contextTracker.cleanup();
+});
 
 test("вход с неверными данными — одинаковая ошибка в обоих случаях, без уточнения причины", async ({
   page,
@@ -10,6 +11,7 @@ test("вход с неверными данными — одинаковая о�
   const runId = Date.now();
   const email = `login-check-${runId}@example.com`;
   const password = "correct-password-123";
+  contextTracker.track(page.context());
 
   await test.step("Заводим реальный аккаунт для проверки", async () => {
     await page.goto("/pomidorqa/auth/register");

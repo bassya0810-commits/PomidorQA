@@ -1,9 +1,13 @@
 import { test, expect } from "@playwright/test";
-import { makeUser, registerUserViaApi, deleteCurrentTestUser } from "../helpers/user";
+import { makeUser, registerUserViaApi, contextTracker } from "../helpers/user";
 import { ProfilePage } from "../pages/ProfilePage";
 import { BookingPage } from "../pages/BookingPage";
 
 test.describe("Каталог: поиск по навыку без учета регистра и формы записи", () => {
+  test.afterEach(async () => {
+    await contextTracker.cleanup();
+  });
+
   test("поиск находит человека по навыку в разном регистре и частичном совпадении", async ({ browser }) => {
     const runId = crypto.randomUUID().slice(0, 10);
     const baseSkill = "Playwright";
@@ -14,6 +18,8 @@ test.describe("Каталог: поиск по навыку без учета р
 
     const hostContext = await browser.newContext();
     const guestContext = await browser.newContext();
+    contextTracker.track(hostContext);
+    contextTracker.track(guestContext);
     const hostPage = await hostContext.newPage();
     const guestPage = await guestContext.newPage();
 
@@ -21,8 +27,7 @@ test.describe("Каталог: поиск по навыку без учета р
     const hostBooking = new BookingPage(hostPage);
     const guestBooking = new BookingPage(guestPage);
 
-    try {
-      await test.step("Хост: регистрируется в PomidorQA через API", async () => {
+    await test.step("Хост: регистрируется в PomidorQA через API", async () => {
         await registerUserViaApi(hostPage, host);
       });
 
@@ -76,11 +81,5 @@ test.describe("Каталог: поиск по навыку без учета р
         const resultCard = guestBooking.catalogCard.filter({ hasText: host.name }).first();
         await expect(resultCard).toContainText(skillTag, { ignoreCase: true });
       });
-    } finally {
-      await deleteCurrentTestUser(hostPage);
-      await deleteCurrentTestUser(guestPage);
-      await hostContext.close();
-      await guestContext.close();
-    }
   });
 });

@@ -1,10 +1,14 @@
 import { test, expect } from "@playwright/test";
-import { makeUser, registerUserViaApi, deleteCurrentTestUser } from "../helpers/user";
+import { makeUser, registerUserViaApi, contextTracker } from "../helpers/user";
 import { ProfilePage } from "../pages/ProfilePage";
 import { BookingPage } from "../pages/BookingPage";
 
 
 test.describe('Гость бронирует встречу, отменяет её, карточка переходит в прошедшие. После reload отмену видят и гость, и хост.', () => {
+  test.afterEach(async () => {
+    await contextTracker.cleanup();
+  });
+
   test ('Полный сценарий бронирования и отмены', async ({ browser }) => {
   const runId = crypto.randomUUID().slice(0, 10);
   const skillTag = `Playwright-demo-${runId}`;
@@ -14,6 +18,9 @@ test.describe('Гость бронирует встречу, отменяет е
   // Два независимых аккаунта = два независимых браузерных контекста
   const hostContext = await browser.newContext();
   const guestContext = await browser.newContext();
+
+  contextTracker.track(hostContext);
+  contextTracker.track(guestContext);
   
   const hostPage = await hostContext.newPage();
   const guestPage = await guestContext.newPage();
@@ -21,8 +28,6 @@ test.describe('Гость бронирует встречу, отменяет е
   const hostProfile = new ProfilePage(hostPage);
   const hostBooking = new BookingPage(hostPage); 
   const guestBooking = new BookingPage(guestPage);
-
-  try{
 
   await test.step("Хост: регистрируется в PomidorQA через API", async () => {
     await registerUserViaApi(hostPage, host);
@@ -124,15 +129,5 @@ test.describe('Гость бронирует встречу, отменяет е
         await expect(hostBooking.bookingCancelCard(guest.name)).toBeVisible();
       },
     );
-  } finally {
-    await deleteCurrentTestUser(hostPage);
-    await deleteCurrentTestUser(guestPage);
-    await hostContext.close();
-    await guestContext.close();
-  }
-});
-test.skip("отмена брони: ждём фикс DELETE /bookings/:id (issue #123)", async () => {
-  // Заглушка до починки endpoint. Убрать skip и дописать проверки.
-  expect(true).toBe(true);
 });
 });

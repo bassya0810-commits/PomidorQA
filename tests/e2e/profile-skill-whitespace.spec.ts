@@ -1,15 +1,16 @@
 import { test, expect } from "@playwright/test";
-import { makeUser, registerUserViaApi, deleteCurrentTestUser } from "../helpers/user";
+import { makeUser, registerUserViaApi, contextTracker } from "../helpers/user";
 import { ProfilePage } from "../pages/ProfilePage";
 
 test.describe("Профиль: валидация навыка с пробелами и пустым значением", () => {
   test.beforeEach(async ({ page }) => {
     const user = makeUser("skill-space", crypto.randomUUID().slice(0, 10));
+    contextTracker.track(page.context());
     await registerUserViaApi(page, user);
   });
 
-  test.afterEach(async ({ page }) => {
-    await deleteCurrentTestUser(page);
+  test.afterEach(async () => {
+    await contextTracker.cleanup();
   });
 
   test("сценарий с пробелами не создаёт пустой навык", async ({ page }) => {

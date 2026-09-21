@@ -36,8 +36,12 @@ export class BookingPage {
     async addSlot() {
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const date = tomorrow.toISOString().slice(0, 10);
+    await this.addSlotAt(date, "12:00");
+    }
+
+    async addSlotAt(date: string, time: string) {
     await this.slotsDateInput.fill(date);
-    await this.slotsTimeInput.fill("12:00");
+    await this.slotsTimeInput.fill(time);
     await this.slotsAddSubmit.click();
     }
 

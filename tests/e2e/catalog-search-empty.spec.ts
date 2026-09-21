@@ -1,15 +1,16 @@
 import { test, expect } from "@playwright/test";
-import { makeUser, registerUserViaApi, deleteCurrentTestUser } from "../helpers/user";
+import { makeUser, registerUserViaApi, contextTracker } from "../helpers/user";
 import { BookingPage } from "../pages/BookingPage";
 
 test.describe("Каталог: поиск по навыку без результатов", () => {
   test.beforeEach(async ({ page }) => {
     const user = makeUser("catalog-empty", crypto.randomUUID().slice(0, 10));
+    contextTracker.track(page.context());
     await registerUserViaApi(page, user);
   });
 
-  test.afterEach(async ({ page }) => {
-    await deleteCurrentTestUser(page);
+  test.afterEach(async () => {
+    await contextTracker.cleanup();
   });
 
   test("поиск по несуществующему навыку даёт пустой результат", async ({ page }) => {

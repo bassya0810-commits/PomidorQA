@@ -2,7 +2,7 @@
   "name": "pomidorqa-course-tests",
   "version": "1.0.0",
   "private": true,
-  "description": "Официальный репозиторий марафона «Автоматизация на Playwright + TypeScript» — эталонные тесты PomidorQA (aiqa.su/pomidorqa) для чтения на уроках и площадка для домашних заданий студентов",
+  "description": "Репозиторий PomidorQA (aiqa.su/pomidorqa)",
   "scripts": {
     "test": "playwright test",
     "test:unit": "playwright test --project=unit",

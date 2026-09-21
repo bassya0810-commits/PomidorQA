@@ -1,48 +1,48 @@
-# AI-reviewer домашних Pull Request
+name: AI Review
 
-После успешного `Playwright CI` reviewer читает изменения текущей домашней работы, `CODEX.md` и `REVIEW.md`, отправляет их Claude Sonnet 5 через Polza.ai и публикует один GitHub review:
+on:
+  workflow_run:
+    workflows: [Playwright CI]
+    types: [completed]
 
-- общий вывод и учебный вердикт;
-- до пяти замечаний на конкретных добавленных строках;
-- статус `COMMENTED`, без approve и merge.
+permissions:
+  contents: read
+  pull-requests: write
 
-## Безопасность
+concurrency:
+  group: ai-review-${{ github.event.workflow_run.pull_requests[0].number }}
+  cancel-in-progress: true
 
-Workflow с ключом Polza использует только доверенный код из `main`. Код студента не checkout-ится и не запускается: diff загружается как текст через GitHub API. Reviewer не скачивает artifacts и caches из CI.
+jobs:
+  review:
+    name: Review homework with Claude
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.pull_requests[0] != null
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
 
-Перед публикацией скрипт проверяет:
+    steps:
+      # Это привилегированный workflow: здесь доступны ключ Polza и write-token.
+      # Никогда не checkout-им PR, не ставим его зависимости и не скачиваем его artifacts.
+      - name: Checkout trusted reviewer from main
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
 
-- ветка соответствует `hw<N>-<github-username>`;
-- CI проверил тот же commit, который сейчас находится в PR;
-- этот commit ещё не получал AI-review;
-- размер diff не превышает 50 000 символов;
-- каждый inline указывает на реально добавленную строку;
-- ответ Claude соответствует строгой JSON Schema.
-- текст модели не может автоматически упомянуть (`@mention`) студента или команду.
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
 
-Reviewer старается сравнить ветку `hw<N>-student` с `hw<N-1>-student`, поэтому накопленные изменения прошлых уроков не проверяются повторно. Если предыдущая ветка недоступна, граница ищется по первому коммиту текущего урока; только после этого используется полный PR diff.
-
-Проверка двухпроходная. Первый вызов Claude формирует кандидатов. Второй получает только эти замечания, соответствующие фрагменты diff и правила и пытается опровергнуть каждый пункт. Общий вывод строится кодом только из замечаний, которые прошли обе проверки; свободный пересказ модели в итог не публикуется.
-
-## Кто публикует комментарии
-
-В GitHub Actions review публикует `github-actions[bot]` через временный `GITHUB_TOKEN`. Claude генерирует содержание, но не получает GitHub-токен и не обращается в репозиторий самостоятельно.
-
-## Настройка
-
-В настройках репозитория нужен Actions secret `POLZA_AI_API_KEY`. Другие постоянные токены не нужны.
-
-Локальный запуск по умолчанию ничего не публикует. Для публикации workflow явно передаёт `AI_REVIEW_ALLOW_PUBLISH=true`.
-
-Для локальной проверки:
-
-```bash
-GITHUB_REPOSITORY=lebed52/pomidorqa-course-tests \
-AI_REVIEW_PR_NUMBER=230 \
-AI_REVIEW_HEAD_SHA=<sha> \
-GITHUB_TOKEN=<github-token> \
-POLZA_AI_API_KEY=<polza-key> \
-node scripts/ai-review.mjs --dry-run
-```
-
-Не передавайте реальные ключи в командной строке или в файлы репозитория; пример показывает только имена переменных.
+      - name: Review Pull Request diff
+        run: node scripts/ai-review.mjs
+        env:
+          AI_REVIEW_ALLOW_PUBLISH: true
+          AI_REVIEW_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          AI_REVIEW_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          GITHUB_TOKEN: ${{ github.token }}
+          POLZA_AI_API_KEY: ${{ secrets.POLZA_AI_API_KEY }}
+          POLZA_AI_MODEL: anthropic/claude-sonnet-5

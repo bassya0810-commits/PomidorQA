@@ -1,20 +1,21 @@
 import { test, expect } from "@playwright/test";
 import { ProfilePage } from "../pages/ProfilePage";
 import { timezones } from "../helpers/user";
-import { makeUser, registerUserViaApi, deleteCurrentTestUser } from "../helpers/user";
+import { makeUser, registerUserViaApi, contextTracker } from "../helpers/user";
 
 test.describe("Профиль: действия с полями", () => {
   let profilePage: ProfilePage;
   
   test.beforeEach(async ({ page }) => {
     const user = makeUser("hw8", crypto.randomUUID().slice(0, 10));
+    contextTracker.track(page.context());
     await registerUserViaApi(page, user);
     profilePage = new ProfilePage(page);
     await profilePage.goto();
   });
 
-  test.afterEach(async ({ page }) => {
-    await deleteCurrentTestUser(page);
+  test.afterEach(async () => {
+    await contextTracker.cleanup();
   });
 
   test("имя: вводим новое и сохраняем", async ({ page }) => {

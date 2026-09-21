@@ -1,29 +1,83 @@
-# PomidorQA — тесты марафона «Автоматизация на Playwright + TypeScript»
+# PomidorQA  — сервис коротких встреч для QA/IT-специалистов.
 
-Официальный репозиторий марафона. Здесь живут эталонные автотесты на продукт
-[PomidorQA](https://aiqa.su/pomidorqa) — сервис коротких встреч для QA/IT-специалистов, единственный
-сквозной проект курса.
+Адрес площадки:[PomidorQA](https://aiqa.su/pomidorqa)
 
-Продукт студентам доступен только как живой сайт (`aiqa.su/pomidorqa`) — исходный код самого
-приложения закрыт (это часть приватного монорепозитория основного проекта AIQA). Здесь — только
-автотесты и вспомогательный код для тестов.!!
+## Содержание репозитория
 
-## Зачем этот репозиторий
+Репозиторий содержит пирамиду автотестов для продукта.
+- 10 unit-тестов
+- 8 API-тестов
+- 19 E2E тестов
 
-- **Читать эталонные тесты** — начиная с Урока 3 разбираем конструкции JS/TS прямо на этом коде
-- **Клонировать и запускать** — начиная с Урока 5, когда в курсе появляется Git
-- **Присылать pull request'ы** — начиная с Урока 5 (первый реальный PR с оптимизацией теста) и
-  особенно с Урока 16 (полный путь тикет → тест → PR → зелёный CI)
-- Репозиторий будет расти вместе с курсом: новые тесты, паттерны (POM/Component Object/Screenplay),
-  CI-workflow (Урок 12) — всё сюда
+### Сводка времени прогона
 
-## Хочешь прислать Pull Request?
+Время измерено отдельно для каждого уровня через Bash `time`, последовательно, на текущем стенде.
 
-Начиная с Урока 5 — см. [CONTRIBUTING.md](./CONTRIBUTING.md): как получить доступ, завести ветку
-и открыть PR (и что будет с ним дальше).
+- Unit: 10 тестов, 2,544 с.
+- API: 8 тестов, 2,467 с.
+- E2E: 19 тестов, 255,644 с (примерно 4 мин 16 с).
+- Всего: 37 тестов, 260,655 с (примерно 4 мин 21 с).
 
-С Урока 11 на ревью открывай [CODEX.md](./CODEX.md). Чеклист — [REVIEW.md](./REVIEW.md).
-Комментарий пиши `кодекс N`, не «тут плохо».
+### Оценка покрытия требований
+
+Ниже — краткая сводка покрытия по пунктам требований из [requirements.md](requirements.md). Порядок соответствует требованиям, чтобы можно было отслеживать и закрывать пробелы.
+
+1. Регистрация и вход — Частично
+	- Проверки:
+	  - Пароль не короче 8 символов: [tests/unit/slots.spec.ts](tests/unit/slots.spec.ts).
+	  - Неверный логин: [tests/e2e/login-error.spec.ts](tests/e2e/login-error.spec.ts).
+	  - Регистрация и дубликат email: [tests/api/booking-api.spec.ts](tests/api/booking-api.spec.ts).
+
+2. Профиль — ✅
+	- Проверки:
+	  - Имя, Telegram, часовой пояс, биография и сохранение после reload: [tests/e2e/profile-flow.spec.ts](tests/e2e/profile-flow.spec.ts).
+
+3. Навыки — ✅
+	- Проверки:
+	  - Добавление и типы навыков: [tests/e2e/profile-flow.spec.ts](tests/e2e/profile-flow.spec.ts).
+	  - Дубли навыков: [tests/e2e/profile-skill-duplicate.spec.ts](tests/e2e/profile-skill-duplicate.spec.ts).
+	  - Пробелы в навыках: [tests/e2e/profile-skill-whitespace.spec.ts](tests/e2e/profile-skill-whitespace.spec.ts).
+
+4. Слоты доступности — Частично
+	- Проверки:
+	  - Слот в прошлом: [tests/e2e/slot-past.spec.ts](tests/e2e/slot-past.spec.ts).
+	  - Пересечение и формат времени: [tests/unit/slots.spec.ts](tests/unit/slots.spec.ts).
+
+5. Каталог участников — ✅
+	- Проверки:
+	  - Поиск без учёта регистра: [tests/e2e/catalog-search-case-insensitive.spec.ts](tests/e2e/catalog-search-case-insensitive.spec.ts).
+	  - Пустой каталог: [tests/e2e/catalog-search-empty.spec.ts](tests/e2e/catalog-search-empty.spec.ts).
+
+6. Страница участника — Частично
+	- Проверки: основной сценарий и карточка хоста в [tests/e2e/booking-flow.spec.ts](tests/e2e/booking-flow.spec.ts).
+	- Пробел: отдельный сценарий для “участник без будущих слотов не виден”.
+
+7. Бронирование — ✅
+	- Проверки:
+	  - Свободное бронирование и гонка за слот: [tests/api/booking-api.spec.ts](tests/api/booking-api.spec.ts).
+	  - Основной пользовательский сценарий: [tests/e2e/booking-flow.spec.ts](tests/e2e/booking-flow.spec.ts).
+	  - Ошибка при бронировании собственного слота: [tests/e2e/booking-own-slot.spec.ts](tests/e2e/booking-own-slot.spec.ts).
+
+8. Отмена бронирования — ✅
+	- Проверки:
+	  - Отмена гостем: [tests/e2e/booking-cancel.spec.ts](tests/e2e/booking-cancel.spec.ts).
+	  - Отмена хостом: [tests/e2e/booking-cancel-host.spec.ts](tests/e2e/booking-cancel-host.spec.ts).
+	  - Повторное бронирование после отмены: [tests/e2e/booking-rebook-after-cancel.spec.ts](tests/e2e/booking-rebook-after-cancel.spec.ts).
+
+9. Мои встречи — ✅
+	- Проверки:
+	  - Ближайшие встречи: [tests/e2e/booking-flow.spec.ts](tests/e2e/booking-flow.spec.ts).
+	  - Отменённая встреча гостем: [tests/e2e/booking-cancel.spec.ts](tests/e2e/booking-cancel.spec.ts).
+	  - Отменённая встреча хостом: [tests/e2e/booking-cancel-host.spec.ts](tests/e2e/booking-cancel-host.spec.ts).
+
+10. Критерии приёмки — ✅
+	- Проверки:
+	  - Основной happy path: [tests/e2e/booking-flow.spec.ts](tests/e2e/booking-flow.spec.ts).
+	  - Нельзя бронировать собственный слот: [tests/e2e/booking-own-slot.spec.ts](tests/e2e/booking-own-slot.spec.ts).
+	  - Повторное бронирование после отмены: [tests/e2e/booking-rebook-after-cancel.spec.ts](tests/e2e/booking-rebook-after-cancel.spec.ts).
+	  - Нельзя создать слот в прошлом: [tests/e2e/slot-past.spec.ts](tests/e2e/slot-past.spec.ts).
+
+Итог по требованиям MVP: покрытие оценивается примерно в 75–80% по бизнес-пунктам, критичные сценарии закрыты. Основные пробелы к следующей итерации — удаление навыка, запрет отмены за 1 час до встречи, гость без регистрации не может бронировать, участник без будущих слотов не виден в каталоге.
 
 ## Установка
 
@@ -56,12 +110,3 @@ src/pyramid/       — вспомогательный код: чистые фу�
 tests/unit/        — пересечение слотов по времени, форматирование времени, валидация пароля
 tests/api/         — регистрация, бронирование, гонка за слот — через HTTP к локальному мок-серверу
 tests/e2e/         — реальный сценарий бронирования и негативный сценарий логина в браузере
-```
-
-## Материал к Уроку 3 («Программирование с нуля через JS/TS»)
-
-Разбираем на эфире построчно: `tests/e2e/booking-flow.spec.ts` и `tests/e2e/login-error.spec.ts`.
-
-**Домашнее задание:** открыть `tests/e2e/booking-flow.spec.ts`, прочитать каждую строчку и
-написать построчно своими словами, что делает автотест. Решение — в чат марафона.
-Запускать тест не обязательно. Подробности — в описании эфира и закрепе чата.
