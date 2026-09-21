@@ -24,6 +24,10 @@ function statusIcon(status) {
   return { passed: "✅", failed: "❌", skipped: "⏭️", flaky: "⚠️", warning: "⚠️" }[status] || "⚪";
 }
 
+function formatCount(count, status) {
+  return count ? `${statusIcon(status)} ${count}` : "";
+}
+
 function fileLink(file) {
   const server = process.env.GITHUB_SERVER_URL || "https://github.com";
   const repository = process.env.GITHUB_REPOSITORY;
@@ -103,8 +107,8 @@ const lines = [
   "",
   "| Проверка | Результат | Passed | Failed | Skipped | Flaky | Время |",
   "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
-  `| Playwright | ${statusIcon(failed ? "failed" : flaky ? "flaky" : "passed")} ${failed ? "Есть ошибки" : flaky ? "Есть нестабильные тесты" : "Успешно"} | ${passed} | ${failed} | ${skipped} | ${flaky} | ${duration} |`,
-  `| Lint | ${lintErrors ? "❌ Есть ошибки" : lintWarnings ? "⚠️ Есть предупреждения" : "✅ Успешно"} | — | — | — | — | — |`,
+  `| Playwright | ${statusIcon(failed ? "failed" : flaky ? "flaky" : "passed")} ${failed ? "Есть ошибки" : flaky ? "Есть нестабильные тесты" : "Успешно"} | ${formatCount(passed, "passed")} | ${formatCount(failed, "failed")} | ${formatCount(skipped, "skipped")} | ${formatCount(flaky, "flaky")} | ${duration} |`,
+  `| Lint | ${lintErrors ? "❌ Есть ошибки" : lintWarnings ? "⚠️ Есть предупреждения" : "✅ Успешно"} |  |  |  |  | — |`,
   "",
   "### Тесты по файлам",
   "",
@@ -115,7 +119,7 @@ const lines = [
 if (files.length) {
   for (const file of files) {
     const status = file.failed ? "failed" : file.flaky ? "flaky" : file.skipped && !file.passed ? "skipped" : "passed";
-    lines.push(`| ${fileLink(file.file)} | ${statusIcon(status)} ${status} | ${file.passed} | ${file.failed} | ${file.skipped} | ${file.flaky} |`);
+    lines.push(`| ${fileLink(file.file)} | ${statusIcon(status)} ${status} | ${formatCount(file.passed, "passed")} | ${formatCount(file.failed, "failed")} | ${formatCount(file.skipped, "skipped")} | ${formatCount(file.flaky, "flaky")} |`);
   }
 } else {
   lines.push("| Нет данных Playwright | — | — | — | — | — |");
@@ -125,7 +129,7 @@ lines.push("", "### Проверки lint по файлам", "", "| Файл | 
 if (lintFiles.length) {
   for (const file of lintFiles) {
     const status = file.errors ? "failed" : file.warnings ? "warning" : "passed";
-    lines.push(`| ${fileLink(file.file)} | ${statusIcon(status)} ${status} | ${file.errors} | ${file.warnings} |`);
+    lines.push(`| ${fileLink(file.file)} | ${statusIcon(status)} ${status} | ${formatCount(file.errors, "failed")} | ${formatCount(file.warnings, "warning")} |`);
   }
 } else {
   lines.push("| Нет данных lint | — | — | — |");
